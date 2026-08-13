@@ -281,7 +281,7 @@ const BUDGET_TIERS = [
   { label:'Under $40', max:40 },
 ];
 
-let state = { sport:'nfl', team:null, scheduleMode:'week', networks:[], accessOptions:[], budgetMax: loadBudget(), user: null, favoriteTeams: new Set(), showOnlyFavorites: false };
+let state = { sport:'nfl', team:null, scheduleMode:'week', networks:[], accessOptions:[], affiliateLinks:{}, budgetMax: loadBudget(), user: null, favoriteTeams: new Set(), showOnlyFavorites: false };
 
 /* ---------------- auth ----------------
    Google sign-in requires the Google provider to be turned on in your
@@ -534,23 +534,35 @@ async function toggleFavorite(abbr, name){
 }
 
 /* ---------------- affiliate link config ----------------
-   Fill in real tracking IDs from each program once you're approved
-   (Amazon Associates for Prime Video, Impact/CJ for Sling/Hulu/fuboTV,
-   NFL+'s own partner program, etc.) — every program has its own signup
-   and its own param format, so these have to be real values you get
-   from each one; I can't generate working affiliate IDs.
-   Keyed the same way as BRAND_STYLES below (display_name, lowercased,
-   letters+digits only). A network with no entry here just uses its
-   plain signup_url from Supabase, untouched. */
+   Two ways to wire up a real affiliate link, pick whichever matches the
+   program you signed up for:
+
+   A) Full pre-built tracking URL (Impact, CJ/Commission Junction, most
+      streaming affiliate networks work this way) — insert a row into the
+      `affiliate_links` table in Supabase, keyed by network_id. No code
+      change or redeploy needed; loadReferenceData() picks it up automatically.
+        insert into affiliate_links (network_id, affiliate_url, program_name)
+        values ('hulu', 'https://your-real-tracking-link...', 'Impact');
+
+   B) Param-append style (Amazon Associates and similar) — the signup_url
+      already stored in access_options is correct, you just need to append
+      a tracking param to it. Fill in AFFILIATE_PARAMS below with your real
+      tracking ID once you're approved for the program.
+
+   Every program has its own signup process and its own real tracking
+   ID/URL — these have to be values you actually get from each one, I
+   can't generate working affiliate IDs. */
 const AFFILIATE_PARAMS = {
   // amazonprimevideo: { param:'tag',       value:'YOUR-AMAZON-ASSOCIATES-TAG-20' },
-  // hulu:              { param:'irclickid', value:'YOUR-IMPACT-CLICK-ID' },
-  // sling:             { param:'irclickid', value:'YOUR-IMPACT-CLICK-ID' },
-  // fubo:              { param:'irclickid', value:'YOUR-IMPACT-CLICK-ID' },
   // paramountplus:     { param:'aid',        value:'YOUR-PARAMOUNT-AFFILIATE-ID' },
 };
 function withAffiliateParams(url, net){
   if(!url) return url;
+  // 1) Full pre-built tracking URL from the affiliate_links table (Impact, CJ, most
+  //    streaming affiliate networks issue these). Managed entirely in Supabase — no redeploy needed.
+  const dbLink = state.affiliateLinks?.[net.id];
+  if(dbLink?.affiliate_url) return dbLink.affiliate_url;
+  // 2) Param-append style (e.g. Amazon Associates) — appends a tracking param to the existing signup_url.
   const key = (net.display_name||'').toLowerCase().replace(/[^a-z0-9]/g,'');
   const cfg = AFFILIATE_PARAMS[key];
   if(!cfg) return url;
@@ -804,16 +816,21 @@ async function loadReferenceData(){
   if(cached){
     state.networks = cached.data.networks;
     state.accessOptions = cached.data.accessOptions;
+    state.affiliateLinks = cached.data.affiliateLinks || {};
     if(cached.age < REFERENCE_TTL) return; // fresh enough, skip the network round trip
   }
   try{
-    const [{data:networks}, {data:opts}] = await Promise.all([
+    const [{data:networks}, {data:opts}, {data:affLinks}] = await Promise.all([
       sb.from('networks').select('*'),
-      sb.from('access_options').select('*').order('sort_order')
+      sb.from('access_options').select('*').order('sort_order'),
+      sb.from('affiliate_links').select('*')
     ]);
     state.networks = networks || [];
     state.accessOptions = opts || [];
-    cacheSet(cacheKey, { networks: state.networks, accessOptions: state.accessOptions });
+    // Keyed by network_id for O(1) lookup in openGame(). A network with no
+    // row here just falls back to its plain signup_url, untouched.
+    state.affiliateLinks = Object.fromEntries((affLinks||[]).map(a=>[a.network_id, a]));
+    cacheSet(cacheKey, { networks: state.networks, accessOptions: state.accessOptions, affiliateLinks: state.affiliateLinks });
   }catch(e){
     if(!cached) console.warn('Supabase reference data unavailable', e);
     // else: silently keep serving the cached copy
@@ -1051,7 +1068,25 @@ async function renderAll(){
   renderBudgetRow();
   renderTeams();
   await loadReferenceData();
+
+  // Handle a deep link from a push notification (?sport=nfl&game=401547XXX):
+  // switch to that sport, load its schedule, then open the matching game's sheet.
+  const params = new URLSearchParams(location.search);
+  const deepSport = params.get('sport');
+  const deepGameId = params.get('game');
+  if(deepSport && SPORTS[deepSport]){ state.sport = deepSport; }
+
   await loadGames();
+
+  if(deepGameId){
+    try{
+      const games = state.team ? await fetchTeamSchedule(state.team) : await fetchScoreboard();
+      const match = games.find(g => String(g.id) === String(deepGameId));
+      if(match) openGame(match);
+    }catch(e){ console.warn('Could not open deep-linked game', e); }
+    // clean the URL so a refresh/share doesn't reopen the same sheet
+    history.replaceState(null, '', location.pathname);
+  }
 }
 
 renderAll();

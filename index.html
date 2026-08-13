@@ -84,11 +84,16 @@ button{font-family:inherit;}
 
 /* ---------- team grid ---------- */
 .teamgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 18px 8px;}
-.teamcell{aspect-ratio:1;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--border);
+.teamcell{aspect-ratio:1;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--border);position:relative;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:12px;color:var(--text-dim);
   transition:border-color .15s,background .15s,color .15s;}
 .teamcell img{width:28px;height:28px;object-fit:contain;}
 .teamcell.active{border-color:rgba(89,233,203,0.5);background:var(--accent-soft);color:var(--accent);}
+.favstar{position:absolute;top:3px;right:3px;width:26px;height:26px;border-radius:50%;background:rgba(10,12,17,0.55);
+  display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--text-faint);line-height:1;}
+.favstar.active{color:#ffc94d;}
+#myTeamsToggle{padding:6px 12px;min-height:30px;font-size:11.5px;font-weight:600;color:var(--text-dim);font-family:'IBM Plex Mono',monospace;background:transparent;}
+#myTeamsToggle.active{background:var(--accent-soft);color:var(--accent);border-color:rgba(89,233,203,0.4)!important;}
 
 /* ---------- live hero ---------- */
 .heroLive{margin:16px 18px;border-radius:var(--radius-lg);overflow:hidden;position:relative;min-height:176px;
@@ -198,19 +203,19 @@ button{font-family:inherit;}
 
 <div class="topbar">
   <div class="logo"><span class="dot"></span><span class="display">Watch Guide</span></div>
-  <button class="iconbtn" id="accountBtn">👤</button>
+  <button class="iconbtn" id="accountBtn" aria-label="Account">👤</button>
 </div>
 
 <div class="chiprow" id="sportChips"></div>
 <div class="budgetrow" id="budgetRow"></div>
 
-<div class="section"><h2>Teams</h2></div>
+<div class="section"><h2>Teams</h2><button class="scopeBtn" id="myTeamsToggle" style="border:1px solid var(--border);border-radius:999px;">★ My teams</button></div>
 <div class="teamgrid" id="teamGrid"></div>
 
 <div id="heroSlot"></div>
 
 <div class="section" id="gamesHeader" style="display:none;"><h2 id="gamesTitle">Upcoming</h2></div>
-<div id="gamesList"></div>
+<div id="gamesList" aria-live="polite"></div>
 
 <div class="footNote">
   Schedule &amp; broadcast network data is pulled live from ESPN's public scoreboard feed.
@@ -271,7 +276,7 @@ const BUDGET_TIERS = [
   { label:'Under $40', max:40 },
 ];
 
-let state = { sport:'nfl', team:null, scheduleMode:'week', networks:[], accessOptions:[], budgetMax: loadBudget(), user: null };
+let state = { sport:'nfl', team:null, scheduleMode:'week', networks:[], accessOptions:[], budgetMax: loadBudget(), user: null, favoriteTeams: new Set(), showOnlyFavorites: false };
 
 /* ---------------- auth ----------------
    Google sign-in requires the Google provider to be turned on in your
@@ -286,10 +291,12 @@ function renderAccountBtn(){
     btn.textContent = initial;
     btn.style.fontSize = '15px';
     btn.style.fontWeight = '700';
+    btn.setAttribute('aria-label', 'Account — signed in as '+(state.user.email||''));
   }else{
     btn.textContent = '👤';
     btn.style.fontSize = '16px';
     btn.style.fontWeight = '400';
+    btn.setAttribute('aria-label', 'Sign in');
   }
 }
 
@@ -385,11 +392,56 @@ if(sb){
   sb.auth.getSession().then(({data})=>{
     state.user = data.session?.user || null;
     renderAccountBtn();
+    loadFavorites();
   });
   sb.auth.onAuthStateChange((_event, session)=>{
+    const wasSignedIn = !!state.user;
     state.user = session?.user || null;
     renderAccountBtn();
+    if(state.user && !wasSignedIn){
+      loadFavorites();
+    }else if(!state.user){
+      state.favoriteTeams = new Set();
+      state.showOnlyFavorites = false;
+      renderTeams();
+    }
   });
+}
+
+/* ---------------- favorites (favorite_teams table, RLS-scoped to auth.uid()) ---------------- */
+async function loadFavorites(){
+  if(!sb || !state.user){ state.favoriteTeams = new Set(); return; }
+  try{
+    const { data, error } = await sb.from('favorite_teams').select('team_abbr').eq('sport', state.sport);
+    if(error) throw error;
+    state.favoriteTeams = new Set((data||[]).map(r=>r.team_abbr));
+  }catch(e){
+    console.warn('Could not load favorite teams', e);
+  }
+  renderTeams();
+}
+
+async function toggleFavorite(abbr){
+  if(!sb) return;
+  if(!state.user){ openAuth('signin'); return; }
+  const isFav = state.favoriteTeams.has(abbr);
+  // optimistic update — flip it locally first, roll back if the write fails
+  if(isFav) state.favoriteTeams.delete(abbr); else state.favoriteTeams.add(abbr);
+  renderTeams();
+  try{
+    if(isFav){
+      const { error } = await sb.from('favorite_teams').delete()
+        .eq('user_id', state.user.id).eq('sport', state.sport).eq('team_abbr', abbr);
+      if(error) throw error;
+    }else{
+      const { error } = await sb.from('favorite_teams').insert({ user_id: state.user.id, sport: state.sport, team_abbr: abbr });
+      if(error) throw error;
+    }
+  }catch(e){
+    console.warn('Could not save favorite', e);
+    if(isFav) state.favoriteTeams.add(abbr); else state.favoriteTeams.delete(abbr); // roll back
+    renderTeams();
+  }
 }
 
 /* ---------------- affiliate link config ----------------
@@ -495,19 +547,41 @@ function renderBudgetRow(){
 function renderTeams(){
   const el = document.getElementById('teamGrid');
   const sport = SPORTS[state.sport];
-  el.innerHTML = sport.teams.map(([abbr,name])=>
-    `<div class="teamcell ${state.team===abbr?'active':''}" data-team="${abbr}">
+  const toggle = document.getElementById('myTeamsToggle');
+  toggle.classList.toggle('active', state.showOnlyFavorites);
+
+  const teams = state.showOnlyFavorites
+    ? sport.teams.filter(([abbr])=>state.favoriteTeams.has(abbr))
+    : sport.teams;
+
+  if(teams.length === 0){
+    el.innerHTML = `<div class="empty" style="grid-column:1/-1;padding:24px 0;">No favorite teams yet — tap the star on any team below.</div>`;
+  }else{
+    el.innerHTML = teams.map(([abbr,name])=>{
+      const isFav = state.favoriteTeams.has(abbr);
+      return `<div class="teamcell ${state.team===abbr?'active':''}" data-team="${abbr}">
+       <button class="favstar ${isFav?'active':''}" data-fav="${abbr}" aria-label="${isFav?'Remove '+name+' from favorites':'Add '+name+' to favorites'}" aria-pressed="${isFav}">${isFav ? '★' : '☆'}</button>
        <img src="https://a.espncdn.com/i/teamlogos/nfl/500/${abbr.toLowerCase()}.png" alt="${name}" loading="lazy" onerror="this.style.display='none'">
        <span>${name}</span>
-     </div>`
-  ).join('');
+     </div>`;
+    }).join('');
+  }
+
   el.querySelectorAll('[data-team]').forEach(c=>c.onclick=()=>{
     state.team = state.team===c.dataset.team ? null : c.dataset.team;
     state.scheduleMode = 'week';
     renderTeams();
     loadGames();
   });
+  el.querySelectorAll('[data-fav]').forEach(b=>b.onclick=(e)=>{
+    e.stopPropagation();
+    toggleFavorite(b.dataset.fav);
+  });
 }
+document.getElementById('myTeamsToggle').onclick = ()=>{
+  state.showOnlyFavorites = !state.showOnlyFavorites;
+  renderTeams();
+};
 
 /* ---------------- fetch: ESPN scoreboard (live, free, no key) ---------------- */
 const SCOREBOARD_TTL_LIVE = 25 * 1000;        // a game's in progress — refresh often
@@ -847,6 +921,9 @@ function openGame(g){
   document.getElementById('sheet').classList.add('open');
 }
 document.getElementById('backdrop').onclick = closeSheet;
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape' && document.getElementById('sheet').classList.contains('open')) closeSheet();
+});
 function closeSheet(){
   document.getElementById('backdrop').classList.remove('open');
   document.getElementById('sheet').classList.remove('open');

@@ -89,13 +89,11 @@ button{font-family:inherit;}
   transition:border-color .15s,background .15s,color .15s;}
 .teamcell img{width:28px;height:28px;object-fit:contain;}
 .teamcell.active{border-color:rgba(89,233,203,0.5);background:var(--accent-soft);color:var(--accent);}
-.favdot{position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:#ffc94d;
-  box-shadow:0 0 0 2px var(--surface);pointer-events:none;}
+.favstar{position:absolute;top:3px;right:3px;width:26px;height:26px;border-radius:50%;background:rgba(10,12,17,0.55);
+  display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--text-faint);line-height:1;}
+.favstar.active{color:#ffc94d;}
 #myTeamsToggle{padding:6px 12px;min-height:30px;font-size:11.5px;font-weight:600;color:var(--text-dim);font-family:'IBM Plex Mono',monospace;background:transparent;}
 #myTeamsToggle.active{background:var(--accent-soft);color:var(--accent);border-color:rgba(89,233,203,0.4)!important;}
-.favToggleBtn{padding:6px 12px;min-height:30px;border-radius:999px;background:var(--surface);border:1px solid var(--border);
-  color:var(--text-dim);font-size:11.5px;font-weight:600;font-family:'IBM Plex Mono',monospace;}
-.favToggleBtn.active{background:rgba(255,201,77,0.14);color:#ffc94d;border-color:rgba(255,201,77,0.4);}
 
 /* ---------- live hero ---------- */
 .heroLive{margin:16px 18px;border-radius:var(--radius-lg);overflow:hidden;position:relative;min-height:176px;
@@ -423,14 +421,6 @@ async function loadFavorites(){
   renderTeams();
 }
 
-function syncFavToggleBtn(){
-  const btn = document.getElementById('favToggleBtn');
-  if(!btn || !state.team) return;
-  const isFav = state.favoriteTeams.has(state.team);
-  btn.classList.toggle('active', isFav);
-  btn.textContent = isFav ? '★ Favorited' : '☆ Favorite';
-}
-
 async function toggleFavorite(abbr){
   if(!sb) return;
   if(!state.user){ openAuth('signin'); return; }
@@ -438,7 +428,6 @@ async function toggleFavorite(abbr){
   // optimistic update — flip it locally first, roll back if the write fails
   if(isFav) state.favoriteTeams.delete(abbr); else state.favoriteTeams.add(abbr);
   renderTeams();
-  syncFavToggleBtn();
   try{
     if(isFav){
       const { error } = await sb.from('favorite_teams').delete()
@@ -452,7 +441,6 @@ async function toggleFavorite(abbr){
     console.warn('Could not save favorite', e);
     if(isFav) state.favoriteTeams.add(abbr); else state.favoriteTeams.delete(abbr); // roll back
     renderTeams();
-    syncFavToggleBtn();
   }
 }
 
@@ -567,12 +555,16 @@ function renderTeams(){
     : sport.teams;
 
   if(teams.length === 0){
-    el.innerHTML = `<div class="empty" style="grid-column:1/-1;padding:24px 0;">No favorite teams yet — select a team below, then tap "☆ Favorite" above its games.</div>`;
+    el.innerHTML = `<div class="empty" style="grid-column:1/-1;padding:24px 0;">No favorite teams yet — tap the star on any team below.</div>`;
   }else{
     el.innerHTML = teams.map(([abbr,name])=>{
       const isFav = state.favoriteTeams.has(abbr);
-      return `<div class="teamcell ${state.team===abbr?'active':''}" data-team="${abbr}">
-       ${isFav ? `<span class="favdot" aria-hidden="true"></span>` : ''}
+      const isSelected = state.team===abbr;
+      const star = isSelected
+        ? `<button class="favstar ${isFav?'active':''}" data-fav="${abbr}" aria-label="${isFav?'Remove '+name+' from favorites':'Add '+name+' to favorites'}" aria-pressed="${isFav}">${isFav ? '★' : '☆'}</button>`
+        : '';
+      return `<div class="teamcell ${isSelected?'active':''}" data-team="${abbr}">
+       ${star}
        <img src="https://a.espncdn.com/i/teamlogos/nfl/500/${abbr.toLowerCase()}.png" alt="${name}" loading="lazy" onerror="this.style.display='none'">
        <span>${name}</span>
      </div>`;
@@ -584,6 +576,12 @@ function renderTeams(){
     state.scheduleMode = 'week';
     renderTeams();
     loadGames();
+  });
+  el.querySelectorAll('[data-fav]').forEach(b=>b.onclick=(e)=>{
+    e.stopPropagation();
+    if(b.disabled) return;
+    b.disabled = true;
+    toggleFavorite(b.dataset.fav).finally(()=>{ b.disabled = false; });
   });
 }
 document.getElementById('myTeamsToggle').onclick = ()=>{
@@ -813,16 +811,12 @@ function renderGames(games){
     ? `${state.team} · ${state.scheduleMode==='season' ? 'full season' : 'this week'}`
     : 'This week';
 
-  header.querySelector('.headerActions')?.remove();
+  header.querySelector('.scopeToggle')?.remove();
   if(state.team){
-    const isFav = state.favoriteTeams.has(state.team);
     header.insertAdjacentHTML('beforeend', `
-      <div class="headerActions" style="display:flex;align-items:center;gap:8px;">
-        <button class="favToggleBtn ${isFav?'active':''}" id="favToggleBtn">${isFav ? '★ Favorited' : '☆ Favorite'}</button>
-        <div class="scopeToggle">
-          <button class="scopeBtn ${state.scheduleMode==='week'?'active':''}" data-mode="week">This week</button>
-          <button class="scopeBtn ${state.scheduleMode==='season'?'active':''}" data-mode="season">Full season</button>
-        </div>
+      <div class="scopeToggle">
+        <button class="scopeBtn ${state.scheduleMode==='week'?'active':''}" data-mode="week">This week</button>
+        <button class="scopeBtn ${state.scheduleMode==='season'?'active':''}" data-mode="season">Full season</button>
       </div>`);
     header.querySelectorAll('.scopeBtn').forEach(b=>{
       b.onclick = ()=>{
@@ -831,7 +825,6 @@ function renderGames(games){
         loadGames();
       };
     });
-    document.getElementById('favToggleBtn').onclick = ()=> toggleFavorite(state.team);
   }
 
   if(games.length === 0){

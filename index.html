@@ -97,6 +97,7 @@ button{font-family:inherit;}
 .favstar.active{color:#ffc94d;}
 #myTeamsToggle{padding:6px 12px;min-height:30px;font-size:11.5px;font-weight:600;color:var(--text-dim);font-family:'IBM Plex Mono',monospace;background:transparent;}
 #myTeamsToggle.active{background:var(--accent-soft);color:var(--accent);border-color:rgba(89,233,203,0.4)!important;}
+#notifyToggle.active{background:var(--accent-soft);color:var(--accent);border-color:rgba(89,233,203,0.4)!important;}
 
 /* ---------- live hero ---------- */
 .heroLive{margin:16px 18px;border-radius:var(--radius-lg);overflow:hidden;position:relative;min-height:176px;
@@ -212,7 +213,7 @@ button{font-family:inherit;}
 <div class="chiprow" id="sportChips"></div>
 <div class="budgetrow" id="budgetRow"></div>
 
-<div class="section"><h2>Teams</h2><button class="scopeBtn" id="myTeamsToggle" style="border:1px solid var(--border);border-radius:999px;">★ My teams</button></div>
+<div class="section"><h2>Teams</h2><button class="scopeBtn" id="myTeamsToggle" style="border:1px solid var(--border);border-radius:999px;">★ My teams</button><button class="scopeBtn" id="notifyToggle" style="border:1px solid var(--border);border-radius:999px;margin-left:6px;display:none;">🔔 Alerts</button></div>
 <div class="teamgrid" id="teamGrid"></div>
 
 <div id="heroSlot"></div>
@@ -241,6 +242,7 @@ button{font-family:inherit;}
 const SUPABASE_URL = 'https://xkgwtvawbhvtqnrnoyrf.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhrZ3d0dmF3Ymh2dHFucm5veXJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MjIzNjUsImV4cCI6MjEwMjE5ODM2NX0.sCm4Xs6Y7OstqoluEECUegnAX9TQ_bazuOeXyvHcdUw';
 const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+const VAPID_PUBLIC_KEY = 'BGVz0UmSgf6vsh6aGS2FsvsZrdXaJtcTa7E_YyFLy94fsbKXt8AcbuJMiRvRyVuSAsIM17qteGb5bXsCNUhQi-E'; // public — safe to expose client-side
 
 /* ============================================================
    SPORTS CONFIG — extensible. NFL wired to ESPN's free public
@@ -396,6 +398,7 @@ if(sb){
     state.user = data.session?.user || null;
     renderAccountBtn();
     loadFavorites();
+    updateNotifyButton();
   });
   sb.auth.onAuthStateChange((_event, session)=>{
     const wasSignedIn = !!state.user;
@@ -408,8 +411,72 @@ if(sb){
       state.showOnlyFavorites = false;
       renderTeams();
     }
+    updateNotifyButton();
   });
 }
+
+/* ---------------- game alerts (Web Push) ---------------- */
+function base64UrlToUint8Array(b64url){
+  const pad = '='.repeat((4 - b64url.length % 4) % 4);
+  const base64 = (b64url + pad).replace(/-/g,'+').replace(/_/g,'/');
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
+}
+
+async function updateNotifyButton(){
+  const btn = document.getElementById('notifyToggle');
+  if(!btn) return;
+  const supported = 'serviceWorker' in navigator && 'PushManager' in window;
+  if(!state.user || !supported){ btn.style.display = 'none'; return; }
+  btn.style.display = 'inline-block';
+  try{
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = reg ? await reg.pushManager.getSubscription() : null;
+    btn.classList.toggle('active', !!sub);
+    btn.textContent = sub ? '🔔 Alerts on' : '🔔 Alerts';
+  }catch(e){ /* no-op — button just shows default state */ }
+}
+
+async function subscribeToAlerts(){
+  if(!VAPID_PUBLIC_KEY || VAPID_PUBLIC_KEY.startsWith('REPLACE')){
+    showFavError('Alerts not configured yet — add a VAPID public key');
+    return;
+  }
+  const perm = await Notification.requestPermission();
+  if(perm !== 'granted'){ showFavError('Notification permission denied'); return; }
+  const reg = await navigator.serviceWorker.register('/sw.js');
+  const sub = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: base64UrlToUint8Array(VAPID_PUBLIC_KEY),
+  });
+  const json = sub.toJSON();
+  const { error } = await sb.from('push_subscriptions').upsert({
+    user_id: state.user.id,
+    endpoint: json.endpoint,
+    p256dh: json.keys.p256dh,
+    auth: json.keys.auth,
+  }, { onConflict: 'endpoint' });
+  if(error){ showFavError(error.message); return; }
+  updateNotifyButton();
+}
+
+async function unsubscribeFromAlerts(){
+  const reg = await navigator.serviceWorker.getRegistration();
+  const sub = reg ? await reg.pushManager.getSubscription() : null;
+  if(sub){
+    await sb.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+    await sub.unsubscribe();
+  }
+  updateNotifyButton();
+}
+
+document.getElementById('notifyToggle').onclick = async ()=>{
+  if(!state.user){ openAuth('signin'); return; }
+  const reg = await navigator.serviceWorker.getRegistration();
+  const sub = reg ? await reg.pushManager.getSubscription() : null;
+  if(sub) await unsubscribeFromAlerts();
+  else await subscribeToAlerts();
+};
 
 /* ---------------- favorites (favorite_teams table, RLS-scoped to auth.uid()) ---------------- */
 async function loadFavorites(){

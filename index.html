@@ -89,8 +89,11 @@ button{font-family:inherit;}
   transition:border-color .15s,background .15s,color .15s;}
 .teamcell img{width:28px;height:28px;object-fit:contain;}
 .teamcell.active{border-color:rgba(89,233,203,0.5);background:var(--accent-soft);color:var(--accent);}
-.favstar{position:absolute;top:3px;right:3px;width:26px;height:26px;border-radius:50%;background:rgba(10,12,17,0.55);
-  display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--text-faint);line-height:1;}
+.favstar{position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:transparent;
+  display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--text-faint);line-height:1;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));transition:transform .1s,opacity .1s;}
+.favstar:active{transform:scale(0.85);}
+.favstar[disabled]{opacity:.5;}
 .favstar.active{color:#ffc94d;}
 #myTeamsToggle{padding:6px 12px;min-height:30px;font-size:11.5px;font-weight:600;color:var(--text-dim);font-family:'IBM Plex Mono',monospace;background:transparent;}
 #myTeamsToggle.active{background:var(--accent-soft);color:var(--accent);border-color:rgba(89,233,203,0.4)!important;}
@@ -421,6 +424,24 @@ async function loadFavorites(){
   renderTeams();
 }
 
+let favErrorTimer = null;
+function showFavError(msg){
+  let el = document.getElementById('favErrorToast');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'favErrorToast';
+    el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:999;'
+      +'background:#3a1414;border:1px solid #7a2a2a;color:#ffb4b4;padding:8px 14px;border-radius:8px;'
+      +'font-size:12px;font-family:"IBM Plex Mono",monospace;max-width:88vw;text-align:center;'
+      +'box-shadow:0 4px 16px rgba(0,0,0,0.4);';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(favErrorTimer);
+  favErrorTimer = setTimeout(()=>{ el.style.display = 'none'; }, 4000);
+}
+
 async function toggleFavorite(abbr){
   if(!sb) return;
   if(!state.user){ openAuth('signin'); return; }
@@ -441,6 +462,7 @@ async function toggleFavorite(abbr){
     console.warn('Could not save favorite', e);
     if(isFav) state.favoriteTeams.add(abbr); else state.favoriteTeams.delete(abbr); // roll back
     renderTeams();
+    showFavError(e?.message || 'Could not save favorite — check connection');
   }
 }
 

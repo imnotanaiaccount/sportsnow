@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' https: data:; connect-src 'self' https://site.api.espn.com https://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'none'; object-src 'none';">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Watch Guide — where to watch every game</title>
 <link rel="preconnect" href="https://site.api.espn.com">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -173,7 +175,7 @@ button{font-family:inherit;}
   <div id="sheetContent"></div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3/dist/umd/supabase.min.js" crossorigin="anonymous"></script>
 <script>
 /* ============================================================
    CONFIG — swap in your project's values from Supabase dashboard
@@ -207,6 +209,52 @@ const SPORTS = {
 
 let state = { sport:'nfl', team:null, networks:[], accessOptions:[] };
 
+/* ============================================================
+   OUTPUT SANITIZING — every value below can originate from a
+   remote source (ESPN's API, or Supabase rows if RLS is ever
+   misconfigured or a row gets edited by someone with dashboard
+   access). Never trust it going into innerHTML unescaped.
+============================================================ */
+function escapeHtml(str){
+  if(str===null || str===undefined) return '';
+  return String(str).replace(/[&<>"']/g, ch => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  }[ch]));
+}
+// Only allow http/https URLs into href/src — blocks javascript:, data:, etc.
+function safeUrl(url){
+  if(!url) return '';
+  try{
+    const u = new URL(url, window.location.href);
+    return (u.protocol === 'http:' || u.protocol === 'https:') ? u.href : '';
+  }catch(e){ return ''; }
+}
+// Only allow real hex colors into inline style attributes.
+function safeColor(c){
+  return /^#[0-9a-fA-F]{3,8}$/.test(c||'') ? c : null;
+}
+
+/* ============================================================
+   LOCAL CACHE — localStorage, stale-while-revalidate.
+   Cuts ESPN/Supabase calls way down: cached data renders
+   instantly, a background refresh only fires once the entry's
+   TTL has actually expired. Falls back to stale data (rather
+   than an error state) if a refresh fetch fails, e.g. offline.
+============================================================ */
+const CACHE_PREFIX = 'wg_cache_v1_';
+function cacheGet(key){
+  try{
+    const raw = localStorage.getItem(CACHE_PREFIX+key);
+    if(!raw) return null;
+    const parsed = JSON.parse(raw);
+    return { age: Date.now()-parsed.t, data: parsed.d };
+  }catch(e){ return null; }
+}
+function cacheSet(key, data){
+  try{ localStorage.setItem(CACHE_PREFIX+key, JSON.stringify({t:Date.now(), d:data})); }
+  catch(e){ /* storage full/unavailable — fine, just skip caching */ }
+}
+
 /* ---------------- render: sport chips ---------------- */
 function renderChips(){
   const el = document.getElementById('sportChips');
@@ -234,13 +282,32 @@ function renderTeams(){
 }
 
 /* ---------------- fetch: ESPN scoreboard (live, free, no key) ---------------- */
+const SCOREBOARD_TTL_LIVE = 25 * 1000;        // a game's in progress — refresh often
+const SCOREBOARD_TTL_IDLE = 4 * 60 * 1000;     // nothing live — schedules rarely move minute to minute
+
 async function fetchScoreboard(){
   const sport = SPORTS[state.sport];
+  const cacheKey = 'scoreboard_' + state.sport;
+  const cached = cacheGet(cacheKey);
+  if(cached){
+    const hasLive = cached.data.some(g=>g.status==='in');
+    const ttl = hasLive ? SCOREBOARD_TTL_LIVE : SCOREBOARD_TTL_IDLE;
+    if(cached.age < ttl) return cached.data;
+  }
   const url = `https://site.api.espn.com/apis/site/v2/sports/${sport.espnPath}/scoreboard`;
-  const res = await fetch(url);
-  if(!res.ok) throw new Error('ESPN scoreboard fetch failed: ' + res.status);
+  let res;
+  try{
+    res = await fetch(url);
+  }catch(networkErr){
+    if(cached) return cached.data; // offline/blocked — serve what we have
+    throw networkErr;
+  }
+  if(!res.ok){
+    if(cached) return cached.data; // serve stale rather than break the UI
+    throw new Error('ESPN scoreboard fetch failed: ' + res.status);
+  }
   const data = await res.json();
-  return (data.events || []).map(ev=>{
+  const games = (data.events || []).map(ev=>{
     const comp = ev.competitions?.[0];
     const broadcasts = comp?.broadcasts?.flatMap(b=>b.names) || [];
     const competitors = comp?.competitors || [];
@@ -259,11 +326,22 @@ async function fetchScoreboard(){
       image: comp?.competitors?.[0]?.team?.logos?.[0]?.href
     };
   });
+  cacheSet(cacheKey, games);
+  return games;
 }
 
 /* ---------------- fetch: Supabase reference data ---------------- */
+const REFERENCE_TTL = 12 * 60 * 60 * 1000; // hand-verified pricing barely changes day to day
+
 async function loadReferenceData(){
   if(!sb) return;
+  const cacheKey = 'reference_' + state.sport;
+  const cached = cacheGet(cacheKey);
+  if(cached){
+    state.networks = cached.data.networks;
+    state.accessOptions = cached.data.accessOptions;
+    if(cached.age < REFERENCE_TTL) return; // fresh enough, skip the network round trip
+  }
   try{
     const [{data:networks}, {data:opts}] = await Promise.all([
       sb.from('networks').select('*'),
@@ -271,11 +349,25 @@ async function loadReferenceData(){
     ]);
     state.networks = networks || [];
     state.accessOptions = opts || [];
-  }catch(e){ console.warn('Supabase reference data unavailable', e); }
+    cacheSet(cacheKey, { networks: state.networks, accessOptions: state.accessOptions });
+  }catch(e){
+    if(!cached) console.warn('Supabase reference data unavailable', e);
+    // else: silently keep serving the cached copy
+  }
 }
 
 function networkForBroadcastName(name){
-  return state.networks.find(n => (n.espn_match_names||[]).some(m => m.toLowerCase() === name.toLowerCase()));
+  const target = (name||'').toLowerCase().trim();
+  if(!target) return null;
+  // exact match first (avoids false positives like "ESPN" matching "ESPN2")
+  const exact = state.networks.find(n => (n.espn_match_names||[]).some(m => m.toLowerCase() === target));
+  if(exact) return exact;
+  // fallback: loose match either direction, so "NFL Net" <-> "NFL Network",
+  // "ESPN" (regular season) <-> "ESPN2"/"ESPN News" style preseason variants, etc.
+  return state.networks.find(n => (n.espn_match_names||[]).some(m=>{
+    const match = m.toLowerCase();
+    return target.includes(match) || match.includes(target);
+  })) || null;
 }
 
 /* ---------------- render: hero (next live/upcoming marquee game) ---------------- */
@@ -284,13 +376,14 @@ function renderHero(games){
   const live = games.find(g=>g.status==='in') || games[0];
   if(!live){ slot.innerHTML=''; return; }
   const isLive = live.status==='in';
+  const imgUrl = safeUrl(live.image);
   slot.innerHTML = `
     <div class="heroLive" id="heroCard">
-      ${live.image ? `<img class="bgimg" src="${live.image}" alt="">` : ''}
+      ${imgUrl ? `<img class="bgimg" src="${imgUrl}" alt="">` : ''}
       <div class="content">
         ${isLive ? `<span class="livepill"><span class="pulse"></span>LIVE NOW</span>` : `<span class="livepill" style="background:var(--surface-2);color:var(--text-dim);border-color:var(--border);">UP NEXT</span>`}
-        <h3>${live.away?.abbreviation||''} @ ${live.home?.abbreviation||''}</h3>
-        <p>${live.statusDetail || ''} · ${live.broadcasts.join(', ') || 'TBD'}</p>
+        <h3>${escapeHtml(live.away?.abbreviation||'')} @ ${escapeHtml(live.home?.abbreviation||'')}</h3>
+        <p>${escapeHtml(live.statusDetail || '')} · ${escapeHtml(live.broadcasts.join(', ') || 'TBD')}</p>
       </div>
     </div>`;
   document.getElementById('heroCard').onclick = ()=>openGame(live);
@@ -309,24 +402,21 @@ function renderGames(games){
     return;
   }
 
-  list.innerHTML = games.map(g=>{
+  list.innerHTML = games.map((g,i)=>{
     const dt = new Date(g.date);
     const timeStr = dt.toLocaleString('en-US',{weekday:'short', hour:'numeric', minute:'2-digit'});
     const netLabel = g.broadcasts[0] || 'TBD';
-    return `<div class="gamecard" data-id="${g.id}">
+    return `<div class="gamecard" data-idx="${i}">
       <div class="teams">
-        <div class="matchup">${g.away?.abbreviation||'—'} @ ${g.home?.abbreviation||'—'}</div>
-        <div class="meta">${g.status==='in' ? g.statusDetail : timeStr}</div>
+        <div class="matchup">${escapeHtml(g.away?.abbreviation||'—')} @ ${escapeHtml(g.home?.abbreviation||'—')}</div>
+        <div class="meta">${escapeHtml(g.status==='in' ? g.statusDetail : timeStr)}</div>
       </div>
-      <span class="netbadge ${g.status==='in'?'live':''}">${netLabel}</span>
+      <span class="netbadge ${g.status==='in'?'live':''}">${escapeHtml(netLabel)}</span>
     </div>`;
   }).join('');
 
   list.querySelectorAll('.gamecard').forEach(card=>{
-    card.onclick = ()=>{
-      const g = games.find(x=>x.id===card.dataset.id);
-      openGame(g);
-    };
+    card.onclick = ()=> openGame(games[Number(card.dataset.idx)]);
   });
 }
 
@@ -346,28 +436,31 @@ function openGame(g){
 
   content.innerHTML = `
     <div class="sheet-header">
-      <div class="matchup display">${g.away?.displayName||g.away?.abbreviation} @ ${g.home?.displayName||g.home?.abbreviation}</div>
-      <div class="meta">${g.status==='in' ? g.statusDetail : timeStr}${g.venue ? ' · '+g.venue : ''}</div>
+      <div class="matchup display">${escapeHtml(g.away?.displayName||g.away?.abbreviation)} @ ${escapeHtml(g.home?.displayName||g.home?.abbreviation)}</div>
+      <div class="meta">${escapeHtml(g.status==='in' ? g.statusDetail : timeStr)}${g.venue ? ' · '+escapeHtml(g.venue) : ''}</div>
     </div>
     <div class="ticket">
-      ${options.length === 0 ? `<div class="empty">No verified "how to watch" info yet for ${g.broadcasts.join(', ')||'this broadcast'}. Connect Supabase reference data to fill this in.</div>` :
-        options.map(({net,o})=>`
+      ${options.length === 0 ? `<div class="empty">No verified "how to watch" info yet for ${escapeHtml(g.broadcasts.join(', ')||'this broadcast')}. Connect Supabase reference data to fill this in.</div>` :
+        options.map(({net,o})=>{
+          const color = safeColor(net.brand_color) || 'var(--accent)';
+          const goUrl = safeUrl(o.signup_url);
+          return `
           <div class="optionrow">
-            <div class="netchip" style="color:${net.brand_color||'var(--accent)'}">${net.display_name.slice(0,4).toUpperCase()}</div>
+            <div class="netchip" style="color:${color}">${escapeHtml((net.display_name||'').slice(0,4).toUpperCase())}</div>
             <div class="info">
               ${o.is_cheapest ? `<div class="cheapesttag">CHEAPEST</div>` : ''}
-              <div class="label">${o.label}</div>
-              <div class="sub">${o.notes || net.display_name}</div>
+              <div class="label">${escapeHtml(o.label)}</div>
+              <div class="sub">${escapeHtml(o.notes || net.display_name)}</div>
             </div>
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
-              <span class="pricepill ${(!o.monthly_cost_usd)?'free':'paid'}">${o.monthly_cost_usd ? '$'+o.monthly_cost_usd+'/mo' : 'Free'}</span>
-              ${o.signup_url ? `<a class="goBtn" href="${o.signup_url}" target="_blank" rel="noopener">Open</a>` : ''}
+              <span class="pricepill ${(!o.monthly_cost_usd)?'free':'paid'}">${o.monthly_cost_usd ? '$'+escapeHtml(o.monthly_cost_usd)+'/mo' : 'Free'}</span>
+              ${goUrl ? `<a class="goBtn" href="${goUrl}" target="_blank" rel="noopener noreferrer">Open</a>` : ''}
             </div>
           </div>
-        `).join('')
+        `;}).join('')
       }
     </div>
-    <div class="verified">🕓 Pricing last verified ${options[0]?.o.last_verified || '—'}. Prices change — always confirm at signup.</div>
+    <div class="verified">🕓 Pricing last verified ${escapeHtml(options[0]?.o.last_verified || '—')}. Prices change — always confirm at signup.</div>
   `;
   document.getElementById('backdrop').classList.add('open');
   document.getElementById('sheet').classList.add('open');

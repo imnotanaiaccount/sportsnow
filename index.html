@@ -132,6 +132,12 @@ button{font-family:inherit;}
 .optionrow{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border-soft);}
 .optionrow:last-child{border-bottom:none;}
 .optionrow.overbudget{opacity:0.4;}
+.optionrow.clickable{cursor:pointer;}
+.optionrow.clickable:active{background:var(--surface-2);}
+.teamlink{cursor:pointer;border-bottom:1px dashed transparent;transition:border-color .15s,color .15s;}
+.teamlink:hover, .teamlink:active{color:var(--accent);border-color:var(--accent);}
+.venuelink{color:inherit;border-bottom:1px dashed var(--text-faint);}
+.venuelink:hover, .venuelink:active{color:var(--accent);border-color:var(--accent);}
 .optionrow .netchip{width:46px;height:46px;border-radius:var(--radius-sm);background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
   font-size:11px;font-weight:800;flex-shrink:0;font-family:'IBM Plex Mono',monospace;letter-spacing:0.02em;text-align:center;line-height:1.05;padding:2px;}
 .optionrow .info{flex:1;min-width:0;}
@@ -146,7 +152,32 @@ button{font-family:inherit;}
 .goBtn:hover{border-color:var(--accent);color:var(--accent);}
 .budgetnote{padding:12px 16px;font-size:12.5px;color:var(--text-dim);text-align:center;border-top:1px solid var(--border-soft);}
 .budgetnote button{color:var(--accent);font-weight:600;text-decoration:underline;padding:0;}
-.verified{padding:14px 20px 22px;font-size:11px;color:var(--text-faint);display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;}
+.verified{padding:14px 20px 4px;font-size:11px;color:var(--text-faint);display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;}
+.disclosure{padding:0 20px 22px;font-size:10.5px;color:var(--text-faint);line-height:1.4;}
+
+/* ---------- auth sheet ---------- */
+.authform{padding:16px 20px 24px;}
+.authtabs{display:flex;gap:4px;background:var(--surface-2);border:1px solid var(--border);border-radius:999px;padding:3px;margin-bottom:18px;}
+.authtab{flex:1;padding:9px 0;border-radius:999px;background:transparent;color:var(--text-dim);font-size:13px;font-weight:600;}
+.authtab.active{background:var(--accent-soft);color:var(--accent);}
+.authfield{margin-bottom:12px;}
+.authfield label{display:block;font-size:11px;color:var(--text-faint);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;font-family:'IBM Plex Mono',monospace;}
+.authfield input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;
+  font-size:15px;color:var(--text);font-family:inherit;}
+.authfield input:focus{outline:none;border-color:var(--accent);}
+.authbtn{width:100%;min-height:46px;border-radius:10px;background:var(--accent);color:#04231d;font-size:14px;font-weight:700;margin-top:4px;}
+.authbtn:disabled{opacity:0.5;}
+.googleBtn{width:100%;min-height:46px;border-radius:10px;background:#fff;color:#1f1f1f;font-size:14px;font-weight:600;
+  display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:14px;border:1px solid var(--border);}
+.authdivider{display:flex;align-items:center;gap:10px;color:var(--text-faint);font-size:11px;margin:16px 0;text-transform:uppercase;letter-spacing:0.08em;font-family:'IBM Plex Mono',monospace;}
+.authdivider::before,.authdivider::after{content:"";flex:1;height:1px;background:var(--border);}
+.autherror{background:rgba(255,90,120,0.12);border:1px solid rgba(255,90,120,0.35);color:#ff8fa3;font-size:12.5px;
+  padding:10px 12px;border-radius:8px;margin-bottom:12px;}
+.authmsg{background:var(--accent-soft);border:1px solid rgba(89,233,203,0.35);color:var(--accent);font-size:12.5px;
+  padding:10px 12px;border-radius:8px;margin-bottom:12px;}
+.accountmenu{padding:8px 20px 22px;}
+.accountmenu .whoami{font-size:13px;color:var(--text-dim);padding:10px 4px 16px;border-bottom:1px solid var(--border-soft);margin-bottom:8px;word-break:break-all;}
+.accountmenu button.signout{width:100%;min-height:46px;border-radius:10px;background:var(--surface-2);border:1px solid var(--border);color:var(--text);font-size:14px;font-weight:600;}
 
 /* ---------- empty / loading ---------- */
 .loading, .empty{padding:44px 18px;text-align:center;color:var(--text-dim);font-size:14px;}
@@ -240,7 +271,154 @@ const BUDGET_TIERS = [
   { label:'Under $40', max:40 },
 ];
 
-let state = { sport:'nfl', team:null, scheduleMode:'week', networks:[], accessOptions:[], budgetMax: loadBudget() };
+let state = { sport:'nfl', team:null, scheduleMode:'week', networks:[], accessOptions:[], budgetMax: loadBudget(), user: null };
+
+/* ---------------- auth ----------------
+   Google sign-in requires the Google provider to be turned on in your
+   Supabase dashboard (Authentication → Providers → Google) with your own
+   Google Cloud OAuth client ID/secret — that's tied to your accounts and
+   isn't something that can be set from here. Email/password works out of
+   the box with just the anon key already in this file. */
+function renderAccountBtn(){
+  const btn = document.getElementById('accountBtn');
+  if(state.user){
+    const initial = (state.user.email||'?')[0].toUpperCase();
+    btn.textContent = initial;
+    btn.style.fontSize = '15px';
+    btn.style.fontWeight = '700';
+  }else{
+    btn.textContent = '👤';
+    btn.style.fontSize = '16px';
+    btn.style.fontWeight = '400';
+  }
+}
+
+function openAccountMenu(){
+  const content = document.getElementById('sheetContent');
+  content.innerHTML = `
+    <div class="sheet-handle"></div>
+    <div class="sheet-header"><div class="matchup display" style="font-size:18px;">Account</div></div>
+    <div class="accountmenu">
+      <div class="whoami">Signed in as ${escapeHtml(state.user.email||'')}</div>
+      <button class="signout" id="signOutBtn">Sign out</button>
+    </div>`;
+  document.getElementById('signOutBtn').onclick = async ()=>{
+    if(!sb) return;
+    await sb.auth.signOut();
+    closeSheet();
+  };
+  document.getElementById('backdrop').classList.add('open');
+  document.getElementById('sheet').classList.add('open');
+}
+
+function openAuth(mode){
+  if(!sb){
+    alert('Sign-in isn\'t available right now — the backend connection is down.');
+    return;
+  }
+  let activeMode = mode || 'signin';
+
+  function render(errorMsg, infoMsg){
+    const content = document.getElementById('sheetContent');
+    content.innerHTML = `
+      <div class="sheet-handle"></div>
+      <div class="sheet-header"><div class="matchup display" style="font-size:18px;">${activeMode==='signup' ? 'Create account' : 'Sign in'}</div></div>
+      <div class="authform">
+        ${errorMsg ? `<div class="autherror">${escapeHtml(errorMsg)}</div>` : ''}
+        ${infoMsg ? `<div class="authmsg">${escapeHtml(infoMsg)}</div>` : ''}
+        <button class="googleBtn" id="googleBtn">
+          <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.95v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.97 10.72A5.4 5.4 0 0 1 3.68 9c0-.6.1-1.18.29-1.72V4.95H.95A9 9 0 0 0 0 9c0 1.45.35 2.83.95 4.05l3.02-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.59-2.59C13.46.89 11.43 0 9 0A9 9 0 0 0 .95 4.95l3.02 2.33C4.68 5.16 6.66 3.58 9 3.58z"/></svg>
+          Continue with Google
+        </button>
+        <div class="authdivider">or</div>
+        <div class="authfield"><label>Email</label><input type="email" id="authEmail" autocomplete="email" placeholder="you@example.com"></div>
+        <div class="authfield"><label>Password</label><input type="password" id="authPassword" autocomplete="${activeMode==='signup'?'new-password':'current-password'}" placeholder="••••••••"></div>
+        <button class="authbtn" id="authSubmit">${activeMode==='signup' ? 'Create account' : 'Sign in'}</button>
+        <div style="text-align:center;margin-top:16px;font-size:13px;color:var(--text-dim);">
+          ${activeMode==='signup' ? 'Already have an account?' : "Don't have an account?"}
+          <a id="authSwitch" style="color:var(--accent);font-weight:600;">${activeMode==='signup' ? 'Sign in' : 'Sign up'}</a>
+        </div>
+      </div>`;
+
+    document.getElementById('authSwitch').onclick = ()=>{
+      activeMode = activeMode==='signup' ? 'signin' : 'signup';
+      render();
+    };
+    document.getElementById('googleBtn').onclick = async ()=>{
+      const { error } = await sb.auth.signInWithOAuth({ provider:'google', options:{ redirectTo: window.location.href } });
+      if(error) render(error.message);
+      // on success, Supabase redirects the page to Google — nothing more to do here
+    };
+    const submitBtn = document.getElementById('authSubmit');
+    const doSubmit = async ()=>{
+      const email = document.getElementById('authEmail').value.trim();
+      const password = document.getElementById('authPassword').value;
+      if(!email || !password){ render('Enter your email and password.'); return; }
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Please wait…';
+      const { data, error } = activeMode==='signup'
+        ? await sb.auth.signUp({ email, password })
+        : await sb.auth.signInWithPassword({ email, password });
+      if(error){ render(error.message); return; }
+      if(activeMode==='signup' && !data.session){
+        render(null, 'Check your email to confirm your account, then sign in.');
+        activeMode = 'signin';
+        return;
+      }
+      closeSheet(); // onAuthStateChange picks up the new session and updates the account button
+    };
+    submitBtn.onclick = doSubmit;
+    document.getElementById('authPassword').addEventListener('keydown', e=>{ if(e.key==='Enter') doSubmit(); });
+  }
+
+  render();
+  document.getElementById('backdrop').classList.add('open');
+  document.getElementById('sheet').classList.add('open');
+}
+
+document.getElementById('accountBtn').onclick = ()=>{
+  if(state.user) openAccountMenu();
+  else openAuth('signin');
+};
+
+if(sb){
+  sb.auth.getSession().then(({data})=>{
+    state.user = data.session?.user || null;
+    renderAccountBtn();
+  });
+  sb.auth.onAuthStateChange((_event, session)=>{
+    state.user = session?.user || null;
+    renderAccountBtn();
+  });
+}
+
+/* ---------------- affiliate link config ----------------
+   Fill in real tracking IDs from each program once you're approved
+   (Amazon Associates for Prime Video, Impact/CJ for Sling/Hulu/fuboTV,
+   NFL+'s own partner program, etc.) — every program has its own signup
+   and its own param format, so these have to be real values you get
+   from each one; I can't generate working affiliate IDs.
+   Keyed the same way as BRAND_STYLES below (display_name, lowercased,
+   letters+digits only). A network with no entry here just uses its
+   plain signup_url from Supabase, untouched. */
+const AFFILIATE_PARAMS = {
+  // amazonprimevideo: { param:'tag',       value:'YOUR-AMAZON-ASSOCIATES-TAG-20' },
+  // hulu:              { param:'irclickid', value:'YOUR-IMPACT-CLICK-ID' },
+  // sling:             { param:'irclickid', value:'YOUR-IMPACT-CLICK-ID' },
+  // fubo:              { param:'irclickid', value:'YOUR-IMPACT-CLICK-ID' },
+  // paramountplus:     { param:'aid',        value:'YOUR-PARAMOUNT-AFFILIATE-ID' },
+};
+function withAffiliateParams(url, net){
+  if(!url) return url;
+  const key = (net.display_name||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  const cfg = AFFILIATE_PARAMS[key];
+  if(!cfg) return url;
+  try{
+    const u = new URL(url);
+    u.searchParams.set(cfg.param, cfg.value);
+    return u.href;
+  }catch(e){ return url; } // malformed URL — just skip affiliate params, safeUrl() handles it downstream
+}
 
 /* ============================================================
    OUTPUT SANITIZING — every value below can originate from a
@@ -608,8 +786,12 @@ function openGame(g){
 
   content.innerHTML = `
     <div class="sheet-header">
-      <div class="matchup display">${escapeHtml(g.away?.displayName||g.away?.abbreviation)} @ ${escapeHtml(g.home?.displayName||g.home?.abbreviation)}</div>
-      <div class="meta">${escapeHtml(g.status==='in' ? g.statusDetail : timeStr)}${g.venue ? ' · '+escapeHtml(g.venue) : ''}</div>
+      <div class="matchup display">
+        <span class="teamlink" data-team="${escapeHtml(g.away?.abbreviation||'')}">${escapeHtml(g.away?.displayName||g.away?.abbreviation)}</span>
+        @
+        <span class="teamlink" data-team="${escapeHtml(g.home?.abbreviation||'')}">${escapeHtml(g.home?.displayName||g.home?.abbreviation)}</span>
+      </div>
+      <div class="meta">${escapeHtml(g.status==='in' ? g.statusDetail : timeStr)}${g.venue ? ' · <a class="venuelink" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(g.venue)+'" target="_blank" rel="noopener noreferrer">'+escapeHtml(g.venue)+'</a>' : ''}</div>
     </div>
     <div class="ticket">
       ${options.length === 0 ? (
@@ -619,14 +801,14 @@ function openGame(g){
       ) :
         options.map(({net,o})=>{
           const color = safeColor(net.brand_color) || 'var(--accent)';
-          const goUrl = safeUrl(o.signup_url);
+          const goUrl = safeUrl(withAffiliateParams(o.signup_url, net));
           const brand = brandStyleFor(net);
           const chipStyle = brand ? `background:${brand.bg};color:${brand.fg};border-color:${brand.bg}` : `color:${color}`;
           const chipLabel = brand ? brand.label : (net.display_name||'').slice(0,4).toUpperCase();
           const cost = o.monthly_cost_usd ?? 0;
           const overBudget = state.budgetMax !== null && cost > state.budgetMax;
           return `
-          <div class="optionrow ${overBudget ? 'overbudget' : ''}">
+          <div class="optionrow ${overBudget ? 'overbudget' : ''} ${goUrl ? 'clickable' : ''}" ${goUrl ? `data-url="${goUrl}"` : ''}>
             <div class="netchip" style="${chipStyle}">${escapeHtml(chipLabel)}</div>
             <div class="info">
               ${o.is_cheapest ? `<div class="cheapesttag">CHEAPEST</div>` : ''}
@@ -642,7 +824,25 @@ function openGame(g){
       }
     </div>
     <div class="verified">🕓 Pricing last verified ${escapeHtml(options[0]?.o.last_verified || '—')}. Prices change — always confirm at signup.</div>
+    ${options.length > 0 ? `<div class="disclosure">Some links above may be affiliate links — we may earn a commission if you sign up, at no extra cost to you.</div>` : ''}
   `;
+  content.querySelectorAll('.optionrow[data-url]').forEach(row=>{
+    row.onclick = (e)=>{
+      if(e.target.closest('a')) return; // let the Open link's own click/target=_blank handle it
+      window.open(row.dataset.url, '_blank', 'noopener,noreferrer');
+    };
+  });
+  content.querySelectorAll('.teamlink[data-team]').forEach(el=>{
+    if(!el.dataset.team) return;
+    el.onclick = ()=>{
+      state.team = el.dataset.team;
+      state.scheduleMode = 'season';
+      closeSheet();
+      renderTeams();
+      loadGames();
+      document.getElementById('teamGrid').scrollIntoView({behavior:'smooth', block:'start'});
+    };
+  });
   document.getElementById('backdrop').classList.add('open');
   document.getElementById('sheet').classList.add('open');
 }

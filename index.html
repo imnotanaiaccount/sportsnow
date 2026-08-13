@@ -415,9 +415,9 @@ if(sb){
 async function loadFavorites(){
   if(!sb || !state.user){ state.favoriteTeams = new Set(); return; }
   try{
-    const { data, error } = await sb.from('favorite_teams').select('team_abbr').eq('sport', state.sport);
+    const { data, error } = await sb.from('favorite_teams').select('team_id').eq('sport', state.sport);
     if(error) throw error;
-    state.favoriteTeams = new Set((data||[]).map(r=>r.team_abbr));
+    state.favoriteTeams = new Set((data||[]).map(r=>r.team_id));
   }catch(e){
     console.warn('Could not load favorite teams', e);
   }
@@ -442,7 +442,7 @@ function showFavError(msg){
   favErrorTimer = setTimeout(()=>{ el.style.display = 'none'; }, 4000);
 }
 
-async function toggleFavorite(abbr){
+async function toggleFavorite(abbr, name){
   if(!sb) return;
   if(!state.user){ openAuth('signin'); return; }
   const isFav = state.favoriteTeams.has(abbr);
@@ -452,10 +452,10 @@ async function toggleFavorite(abbr){
   try{
     if(isFav){
       const { error } = await sb.from('favorite_teams').delete()
-        .eq('user_id', state.user.id).eq('sport', state.sport).eq('team_abbr', abbr);
+        .eq('user_id', state.user.id).eq('sport', state.sport).eq('team_id', abbr);
       if(error) throw error;
     }else{
-      const { error } = await sb.from('favorite_teams').insert({ user_id: state.user.id, sport: state.sport, team_abbr: abbr });
+      const { error } = await sb.from('favorite_teams').insert({ user_id: state.user.id, sport: state.sport, team_id: abbr, team_name: name || abbr });
       if(error) throw error;
     }
   }catch(e){
@@ -583,7 +583,7 @@ function renderTeams(){
       const isFav = state.favoriteTeams.has(abbr);
       const isSelected = state.team===abbr;
       const star = isSelected
-        ? `<button class="favstar ${isFav?'active':''}" data-fav="${abbr}" aria-label="${isFav?'Remove '+name+' from favorites':'Add '+name+' to favorites'}" aria-pressed="${isFav}">${isFav ? '★' : '☆'}</button>`
+        ? `<button class="favstar ${isFav?'active':''}" data-fav="${abbr}" data-name="${name}" aria-label="${isFav?'Remove '+name+' from favorites':'Add '+name+' to favorites'}" aria-pressed="${isFav}">${isFav ? '★' : '☆'}</button>`
         : '';
       return `<div class="teamcell ${isSelected?'active':''}" data-team="${abbr}">
        ${star}
@@ -603,7 +603,7 @@ function renderTeams(){
     e.stopPropagation();
     if(b.disabled) return;
     b.disabled = true;
-    toggleFavorite(b.dataset.fav).finally(()=>{ b.disabled = false; });
+    toggleFavorite(b.dataset.fav, b.dataset.name).finally(()=>{ b.disabled = false; });
   });
 }
 document.getElementById('myTeamsToggle').onclick = ()=>{

@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Watch Guide — where to watch every game</title>
+<link rel="preconnect" href="https://site.api.espn.com">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#0A0C11">
+<meta name="description" content="Find where every game is airing, with hand-verified prices for every way to watch.">
+<style>
+/* ============================================================
+   DESIGN SYSTEM — "signal": a broadcast-console read on dark UI.
+   One job: tell you which signal to tune into. The accent color
+   (cyan) and the ping motif both come from that idea, used once
+   as the signature (live badge + logo mark) and nowhere else as
+   decoration. No paper, no marquee bulbs, no collegiate poster type.
+   ============================================================ */
+:root{
+  --bg:#0A0C11;
+  --surface:#12151D;
+  --surface-2:#1A1F29;
+  --border:#242A37;
+  --border-soft:#1B2029;
+  --text:#EEF1F6;
+  --text-dim:#828C9E;
+  --text-faint:#565F70;
+  --accent:#59E9CB;
+  --accent-ink:#08211D;
+  --accent-soft:rgba(89,233,203,0.12);
+  --live:#FF5A78;
+  --live-soft:rgba(255,90,120,0.14);
+  --radius-lg:20px;
+  --radius:14px;
+  --radius-sm:9px;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;min-height:100vh;}
+body{padding-bottom:env(safe-area-inset-bottom);}
+h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif; font-weight:600; letter-spacing:-0.01em;}
+.mono{font-family:'IBM Plex Mono',monospace;}
+a{color:inherit;text-decoration:none;}
+button{font-family:inherit;}
+
+/* ---------- top bar ---------- */
+.topbar{position:sticky;top:0;z-index:20;background:rgba(10,12,17,0.82);backdrop-filter:blur(14px);
+  padding:16px 18px 13px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between;}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);position:relative;}
+.logo .dot::before,.logo .dot::after{content:"";position:absolute;inset:0;border-radius:50%;border:1px solid var(--accent);opacity:0.5;}
+.logo .dot::before{inset:-4px;opacity:0.35;}
+.logo .dot::after{inset:-8px;opacity:0.16;}
+.logo span{font-size:18px;font-weight:600;letter-spacing:-0.01em;}
+.iconbtn{width:36px;height:36px;border-radius:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);
+  display:flex;align-items:center;justify-content:center;font-size:15px;}
+
+/* ---------- sport chips ---------- */
+.chiprow{display:flex;gap:6px;padding:16px 18px 8px;overflow-x:auto;scrollbar-width:none;}
+.chiprow::-webkit-scrollbar{display:none;}
+.chip{flex:0 0 auto;padding:7px 14px;border-radius:999px;background:transparent;border:1px solid var(--border);
+  font-size:13px;font-weight:500;letter-spacing:0.01em;color:var(--text-dim);white-space:nowrap;transition:border-color .15s,color .15s,background .15s;}
+.chip.active{background:var(--accent-soft);color:var(--accent);border-color:rgba(89,233,203,0.4);}
+
+/* ---------- section ---------- */
+.section{padding:22px 18px 6px;}
+.section h2{font-size:11px;color:var(--text-faint);letter-spacing:0.14em;margin:0 0 12px;font-weight:600;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;}
+
+/* ---------- team grid ---------- */
+.teamgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 18px 8px;}
+.teamcell{aspect-ratio:1;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--border);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:10.5px;color:var(--text-dim);
+  transition:border-color .15s,background .15s,color .15s;}
+.teamcell img{width:28px;height:28px;object-fit:contain;}
+.teamcell.active{border-color:rgba(89,233,203,0.5);background:var(--accent-soft);color:var(--accent);}
+
+/* ---------- live hero ---------- */
+.heroLive{margin:16px 18px;border-radius:var(--radius-lg);overflow:hidden;position:relative;min-height:176px;
+  background:linear-gradient(160deg,var(--surface-2),var(--bg) 75%);border:1px solid var(--border);isolation:isolate;}
+.heroLive .bgimg{position:absolute;inset:0;object-fit:cover;width:100%;height:100%;opacity:0.22;filter:saturate(0.9) contrast(1.05);
+  mask-image:linear-gradient(to top,black,rgba(0,0,0,0.15));}
+.heroLive .content{position:relative;padding:20px 18px 18px;display:flex;flex-direction:column;justify-content:flex-end;min-height:176px;}
+.livepill{display:inline-flex;align-items:center;gap:7px;background:var(--live-soft);color:var(--live);font-size:11px;font-weight:600;
+  padding:5px 10px 5px 8px;border-radius:999px;width:fit-content;margin-bottom:10px;letter-spacing:0.06em;font-family:'IBM Plex Mono',monospace;
+  border:1px solid rgba(255,90,120,0.3);}
+.livepill .pulse{width:6px;height:6px;border-radius:50%;background:var(--live);position:relative;}
+.livepill .pulse::before{content:"";position:absolute;inset:-5px;border-radius:50%;border:1px solid var(--live);animation:ping 1.6s cubic-bezier(0,0,0.2,1) infinite;}
+@keyframes ping{0%{transform:scale(0.6);opacity:0.8;}100%{transform:scale(2.2);opacity:0;}}
+.heroLive h3{font-size:26px;margin:0 0 4px;font-weight:600;}
+.heroLive p{margin:0;color:var(--text-dim);font-size:12.5px;font-family:'IBM Plex Mono',monospace;}
+
+/* ---------- game card list ---------- */
+.gamecard{margin:0 18px 8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:14px 16px;display:flex;align-items:center;gap:12px;transition:border-color .15s;}
+.gamecard:has(.netbadge.live){border-color:rgba(255,90,120,0.4);}
+.gamecard .teams{flex:1;min-width:0;}
+.gamecard .matchup{font-size:15.5px;font-weight:600;font-family:'Space Grotesk',sans-serif;letter-spacing:-0.005em;}
+.gamecard .meta{font-size:12px;color:var(--text-dim);margin-top:3px;font-family:'IBM Plex Mono',monospace;}
+.netbadge{font-size:11px;font-weight:600;padding:5px 9px;border-radius:7px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-dim);white-space:nowrap;font-family:'IBM Plex Mono',monospace;}
+.netbadge.live{background:var(--live-soft);color:var(--live);border-color:rgba(255,90,120,0.35);}
+
+/* ---------- detail sheet (game / how to watch) ---------- */
+.sheet-backdrop{position:fixed;inset:0;background:rgba(5,6,9,0.7);z-index:40;opacity:0;pointer-events:none;transition:opacity .25s;}
+.sheet-backdrop.open{opacity:1;pointer-events:auto;}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:41;background:var(--surface);border-radius:22px 22px 0 0;
+  transform:translateY(100%);transition:transform .3s cubic-bezier(.32,.72,0,1);max-height:88vh;overflow-y:auto;
+  border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom);}
+.sheet.open{transform:translateY(0);}
+.sheet-handle{width:32px;height:4px;border-radius:2px;background:var(--border);margin:10px auto 4px;}
+.sheet-header{padding:10px 20px 16px;border-bottom:1px solid var(--border-soft);}
+.sheet-header .matchup{font-size:21px;}
+.sheet-header .meta{color:var(--text-dim);font-size:12.5px;margin-top:4px;font-family:'IBM Plex Mono',monospace;}
+
+/* access list: how to watch — a flat data list, not a ticket stub */
+.ticket{margin:16px 18px 0;border-radius:var(--radius);background:var(--surface-2);border:1px solid var(--border);overflow:hidden;}
+.optionrow{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border-soft);}
+.optionrow:last-child{border-bottom:none;}
+.optionrow .netchip{width:40px;height:40px;border-radius:var(--radius-sm);background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
+  font-size:10.5px;font-weight:700;flex-shrink:0;font-family:'IBM Plex Mono',monospace;letter-spacing:0.02em;}
+.optionrow .info{flex:1;min-width:0;}
+.optionrow .label{font-size:14px;font-weight:600;color:var(--text);}
+.optionrow .sub{font-size:12px;color:var(--text-dim);margin-top:2px;}
+.pricepill{font-size:11.5px;font-weight:600;padding:5px 9px;border-radius:7px;font-family:'IBM Plex Mono',monospace;border:1px solid transparent;}
+.pricepill.free{background:var(--accent-soft);color:var(--accent);border-color:rgba(89,233,203,0.3);}
+.pricepill.paid{background:var(--surface);color:var(--text-dim);border-color:var(--border);}
+.cheapesttag{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:0.06em;color:var(--accent);
+  background:var(--accent-soft);padding:2px 7px;border-radius:5px;margin-bottom:4px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;}
+.goBtn{background:transparent;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;transition:border-color .15s,color .15s;}
+.goBtn:hover{border-color:var(--accent);color:var(--accent);}
+.verified{padding:14px 20px 22px;font-size:11px;color:var(--text-faint);display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;}
+
+/* ---------- empty / loading ---------- */
+.loading, .empty{padding:44px 18px;text-align:center;color:var(--text-dim);font-size:14px;}
+.spinner{width:20px;height:20px;border-radius:50%;border:2px solid var(--border);border-top-color:var(--accent);
+  animation:spin .7s linear infinite;margin:0 auto 12px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* reduced motion */
+@media (prefers-reduced-motion: reduce){
+  .livepill .pulse::before, .spinner{animation:none;}
+  .sheet{transition:none;}
+}
+
+.footNote{padding:26px 18px 40px;font-size:11px;color:var(--text-faint);text-align:center;line-height:1.6;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo"><span class="dot"></span><span class="display">Watch Guide</span></div>
+  <button class="iconbtn" id="accountBtn">👤</button>
+</div>
+
+<div class="chiprow" id="sportChips"></div>
+
+<div class="section"><h2>Teams</h2></div>
+<div class="teamgrid" id="teamGrid"></div>
+
+<div id="heroSlot"></div>
+
+<div class="section" id="gamesHeader" style="display:none;"><h2 id="gamesTitle">Upcoming</h2></div>
+<div id="gamesList"></div>
+
+<div class="footNote">
+  Schedule &amp; broadcast network data is pulled live from ESPN's public scoreboard feed.
+  "How to watch" pricing is reference data we verify by hand — each option shows the date it was last checked, not a live price.
+</div>
+
+<div class="sheet-backdrop" id="backdrop"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <div id="sheetContent"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+/* ============================================================
+   CONFIG — swap in your project's values from Supabase dashboard
+   Settings → API. The anon key is safe to expose client-side;
+   RLS policies (see schema.sql) control what it can actually do.
+============================================================ */
+const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
+const SUPABASE_ANON_KEY = 'YOUR-ANON-KEY';
+const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+/* ============================================================
+   SPORTS CONFIG — extensible. NFL wired to ESPN's free public
+   scoreboard API (no key required, same data espn.com uses).
+============================================================ */
+const SPORTS = {
+  nfl: {
+    label: 'NFL',
+    espnPath: 'football/nfl',
+    teams: [
+      ['ARI','Cardinals'],['ATL','Falcons'],['BAL','Ravens'],['BUF','Bills'],
+      ['CAR','Panthers'],['CHI','Bears'],['CIN','Bengals'],['CLE','Browns'],
+      ['DAL','Cowboys'],['DEN','Broncos'],['DET','Lions'],['GB','Packers'],
+      ['HOU','Texans'],['IND','Colts'],['JAX','Jaguars'],['KC','Chiefs'],
+      ['LAC','Chargers'],['LAR','Rams'],['LV','Raiders'],['MIA','Dolphins'],
+      ['MIN','Vikings'],['NE','Patriots'],['NO','Saints'],['NYG','Giants'],
+      ['NYJ','Jets'],['PHI','Eagles'],['PIT','Steelers'],['SEA','Seahawks'],
+      ['SF','49ers'],['TB','Buccaneers'],['TEN','Titans'],['WSH','Commanders'],
+    ]
+  }
+};
+
+let state = { sport:'nfl', team:null, networks:[], accessOptions:[] };
+
+/* ---------------- render: sport chips ---------------- */
+function renderChips(){
+  const el = document.getElementById('sportChips');
+  el.innerHTML = Object.entries(SPORTS).map(([key,s]) =>
+    `<button class="chip ${key===state.sport?'active':''}" data-sport="${key}">${s.label}</button>`
+  ).join('') + `<button class="chip" disabled style="opacity:.4">NBA soon</button><button class="chip" disabled style="opacity:.4">MLB soon</button>`;
+  el.querySelectorAll('[data-sport]').forEach(b=>b.onclick=()=>{state.sport=b.dataset.sport;state.team=null;renderAll();});
+}
+
+/* ---------------- render: team grid ---------------- */
+function renderTeams(){
+  const el = document.getElementById('teamGrid');
+  const sport = SPORTS[state.sport];
+  el.innerHTML = sport.teams.map(([abbr,name])=>
+    `<div class="teamcell ${state.team===abbr?'active':''}" data-team="${abbr}">
+       <img src="https://a.espncdn.com/i/teamlogos/nfl/500/${abbr.toLowerCase()}.png" alt="${name}" loading="lazy" onerror="this.style.display='none'">
+       <span>${name}</span>
+     </div>`
+  ).join('');
+  el.querySelectorAll('[data-team]').forEach(c=>c.onclick=()=>{
+    state.team = state.team===c.dataset.team ? null : c.dataset.team;
+    renderTeams();
+    loadGames();
+  });
+}
+
+/* ---------------- fetch: ESPN scoreboard (live, free, no key) ---------------- */
+async function fetchScoreboard(){
+  const sport = SPORTS[state.sport];
+  const url = `https://site.api.espn.com/apis/site/v2/sports/${sport.espnPath}/scoreboard`;
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('ESPN scoreboard fetch failed: ' + res.status);
+  const data = await res.json();
+  return (data.events || []).map(ev=>{
+    const comp = ev.competitions?.[0];
+    const broadcasts = comp?.broadcasts?.flatMap(b=>b.names) || [];
+    const competitors = comp?.competitors || [];
+    const home = competitors.find(c=>c.homeAway==='home');
+    const away = competitors.find(c=>c.homeAway==='away');
+    return {
+      id: ev.id,
+      name: ev.name,
+      date: ev.date,
+      status: ev.status?.type?.state, // 'pre' | 'in' | 'post'
+      statusDetail: ev.status?.type?.shortDetail,
+      home: home?.team, away: away?.team,
+      homeScore: home?.score, awayScore: away?.score,
+      broadcasts,
+      venue: comp?.venue?.fullName,
+      image: comp?.competitors?.[0]?.team?.logos?.[0]?.href
+    };
+  });
+}
+
+/* ---------------- fetch: Supabase reference data ---------------- */
+async function loadReferenceData(){
+  if(!sb) return;
+  try{
+    const [{data:networks}, {data:opts}] = await Promise.all([
+      sb.from('networks').select('*'),
+      sb.from('access_options').select('*').order('sort_order')
+    ]);
+    state.networks = networks || [];
+    state.accessOptions = opts || [];
+  }catch(e){ console.warn('Supabase reference data unavailable', e); }
+}
+
+function networkForBroadcastName(name){
+  return state.networks.find(n => (n.espn_match_names||[]).some(m => m.toLowerCase() === name.toLowerCase()));
+}
+
+/* ---------------- render: hero (next live/upcoming marquee game) ---------------- */
+function renderHero(games){
+  const slot = document.getElementById('heroSlot');
+  const live = games.find(g=>g.status==='in') || games[0];
+  if(!live){ slot.innerHTML=''; return; }
+  const isLive = live.status==='in';
+  slot.innerHTML = `
+    <div class="heroLive" id="heroCard">
+      ${live.image ? `<img class="bgimg" src="${live.image}" alt="">` : ''}
+      <div class="content">
+        ${isLive ? `<span class="livepill"><span class="pulse"></span>LIVE NOW</span>` : `<span class="livepill" style="background:var(--surface-2);color:var(--text-dim);border-color:var(--border);">UP NEXT</span>`}
+        <h3>${live.away?.abbreviation||''} @ ${live.home?.abbreviation||''}</h3>
+        <p>${live.statusDetail || ''} · ${live.broadcasts.join(', ') || 'TBD'}</p>
+      </div>
+    </div>`;
+  document.getElementById('heroCard').onclick = ()=>openGame(live);
+}
+
+/* ---------------- render: game list ---------------- */
+function renderGames(games){
+  const header = document.getElementById('gamesHeader');
+  const title = document.getElementById('gamesTitle');
+  const list = document.getElementById('gamesList');
+  header.style.display = 'block';
+  title.textContent = state.team ? `${state.team} games` : 'This week';
+
+  if(games.length === 0){
+    list.innerHTML = `<div class="empty">No games found. Try another team, or check back closer to kickoff.</div>`;
+    return;
+  }
+
+  list.innerHTML = games.map(g=>{
+    const dt = new Date(g.date);
+    const timeStr = dt.toLocaleString('en-US',{weekday:'short', hour:'numeric', minute:'2-digit'});
+    const netLabel = g.broadcasts[0] || 'TBD';
+    return `<div class="gamecard" data-id="${g.id}">
+      <div class="teams">
+        <div class="matchup">${g.away?.abbreviation||'—'} @ ${g.home?.abbreviation||'—'}</div>
+        <div class="meta">${g.status==='in' ? g.statusDetail : timeStr}</div>
+      </div>
+      <span class="netbadge ${g.status==='in'?'live':''}">${netLabel}</span>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.gamecard').forEach(card=>{
+    card.onclick = ()=>{
+      const g = games.find(x=>x.id===card.dataset.id);
+      openGame(g);
+    };
+  });
+}
+
+/* ---------------- game detail sheet: "how to watch" ticket ---------------- */
+function openGame(g){
+  const content = document.getElementById('sheetContent');
+  const dt = new Date(g.date);
+  const timeStr = dt.toLocaleString('en-US',{weekday:'long', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+
+  const options = [];
+  g.broadcasts.forEach(name=>{
+    const net = networkForBroadcastName(name);
+    if(!net) return;
+    const accessRows = state.accessOptions.filter(o=>o.network_id===net.id).sort((a,b)=>(a.monthly_cost_usd??0)-(b.monthly_cost_usd??0));
+    accessRows.forEach(o=>options.push({net,o}));
+  });
+
+  content.innerHTML = `
+    <div class="sheet-header">
+      <div class="matchup display">${g.away?.displayName||g.away?.abbreviation} @ ${g.home?.displayName||g.home?.abbreviation}</div>
+      <div class="meta">${g.status==='in' ? g.statusDetail : timeStr}${g.venue ? ' · '+g.venue : ''}</div>
+    </div>
+    <div class="ticket">
+      ${options.length === 0 ? `<div class="empty">No verified "how to watch" info yet for ${g.broadcasts.join(', ')||'this broadcast'}. Connect Supabase reference data to fill this in.</div>` :
+        options.map(({net,o})=>`
+          <div class="optionrow">
+            <div class="netchip" style="color:${net.brand_color||'var(--accent)'}">${net.display_name.slice(0,4).toUpperCase()}</div>
+            <div class="info">
+              ${o.is_cheapest ? `<div class="cheapesttag">CHEAPEST</div>` : ''}
+              <div class="label">${o.label}</div>
+              <div class="sub">${o.notes || net.display_name}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+              <span class="pricepill ${(!o.monthly_cost_usd)?'free':'paid'}">${o.monthly_cost_usd ? '$'+o.monthly_cost_usd+'/mo' : 'Free'}</span>
+              ${o.signup_url ? `<a class="goBtn" href="${o.signup_url}" target="_blank" rel="noopener">Open</a>` : ''}
+            </div>
+          </div>
+        `).join('')
+      }
+    </div>
+    <div class="verified">🕓 Pricing last verified ${options[0]?.o.last_verified || '—'}. Prices change — always confirm at signup.</div>
+  `;
+  document.getElementById('backdrop').classList.add('open');
+  document.getElementById('sheet').classList.add('open');
+}
+document.getElementById('backdrop').onclick = closeSheet;
+function closeSheet(){
+  document.getElementById('backdrop').classList.remove('open');
+  document.getElementById('sheet').classList.remove('open');
+}
+
+/* ---------------- orchestration ---------------- */
+async function loadGames(){
+  document.getElementById('gamesHeader').style.display='block';
+  document.getElementById('gamesList').innerHTML = `<div class="loading"><div class="spinner"></div>Loading live schedule…</div>`;
+  try{
+    let games = await fetchScoreboard();
+    if(state.team){
+      games = games.filter(g => g.home?.abbreviation===state.team || g.away?.abbreviation===state.team);
+    }
+    renderHero(games);
+    renderGames(games);
+  }catch(e){
+    console.error(e);
+    document.getElementById('gamesList').innerHTML = `<div class="empty">Couldn't reach the live schedule. Check your connection and pull to refresh.</div>`;
+  }
+}
+
+async function renderAll(){
+  renderChips();
+  renderTeams();
+  await loadReferenceData();
+  await loadGames();
+}
+
+renderAll();
+</script>
+</body>
+</html>

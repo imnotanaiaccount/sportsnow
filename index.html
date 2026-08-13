@@ -55,24 +55,37 @@ button{font-family:inherit;}
 .logo .dot::before{inset:-4px;opacity:0.35;}
 .logo .dot::after{inset:-8px;opacity:0.16;}
 .logo span{font-size:18px;font-weight:600;letter-spacing:-0.01em;}
-.iconbtn{width:36px;height:36px;border-radius:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);
-  display:flex;align-items:center;justify-content:center;font-size:15px;}
+.iconbtn{width:44px;height:44px;border-radius:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);
+  display:flex;align-items:center;justify-content:center;font-size:16px;}
 
 /* ---------- sport chips ---------- */
 .chiprow{display:flex;gap:6px;padding:16px 18px 8px;overflow-x:auto;scrollbar-width:none;}
 .chiprow::-webkit-scrollbar{display:none;}
-.chip{flex:0 0 auto;padding:7px 14px;border-radius:999px;background:transparent;border:1px solid var(--border);
+.chip{flex:0 0 auto;padding:9px 15px;min-height:36px;border-radius:999px;background:transparent;border:1px solid var(--border);
   font-size:13px;font-weight:500;letter-spacing:0.01em;color:var(--text-dim);white-space:nowrap;transition:border-color .15s,color .15s,background .15s;}
 .chip.active{background:var(--accent-soft);color:var(--accent);border-color:rgba(89,233,203,0.4);}
 
+/* ---------- budget row ---------- */
+.budgetrow{display:flex;align-items:center;gap:6px;padding:2px 18px 12px;overflow-x:auto;scrollbar-width:none;}
+.budgetrow::-webkit-scrollbar{display:none;}
+.budgetrow .budgetlabel{font-size:10.5px;color:var(--text-faint);letter-spacing:0.1em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;flex:0 0 auto;margin-right:2px;}
+.budgetchip{flex:0 0 auto;padding:8px 13px;min-height:34px;border-radius:999px;background:transparent;border:1px solid var(--border);
+  font-size:12.5px;font-weight:500;color:var(--text-dim);white-space:nowrap;font-family:'IBM Plex Mono',monospace;}
+.budgetchip.active{background:var(--accent-soft);color:var(--accent);border-color:rgba(89,233,203,0.4);}
+
 /* ---------- section ---------- */
-.section{padding:22px 18px 6px;}
-.section h2{font-size:11px;color:var(--text-faint);letter-spacing:0.14em;margin:0 0 12px;font-weight:600;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;}
+.section{padding:22px 18px 6px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.section h2{font-size:11px;color:var(--text-faint);letter-spacing:0.14em;margin:0;font-weight:600;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;}
+
+/* ---------- schedule scope toggle ---------- */
+.scopeToggle{display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:3px;}
+.scopeBtn{padding:6px 12px;min-height:30px;border-radius:999px;background:transparent;color:var(--text-dim);font-size:11.5px;font-weight:600;font-family:'IBM Plex Mono',monospace;}
+.scopeBtn.active{background:var(--accent-soft);color:var(--accent);}
 
 /* ---------- team grid ---------- */
 .teamgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 18px 8px;}
 .teamcell{aspect-ratio:1;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--border);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:10.5px;color:var(--text-dim);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:12px;color:var(--text-dim);
   transition:border-color .15s,background .15s,color .15s;}
 .teamcell img{width:28px;height:28px;object-fit:contain;}
 .teamcell.active{border-color:rgba(89,233,203,0.5);background:var(--accent-soft);color:var(--accent);}
@@ -99,7 +112,7 @@ button{font-family:inherit;}
 .gamecard .teams{flex:1;min-width:0;}
 .gamecard .matchup{font-size:15.5px;font-weight:600;font-family:'Space Grotesk',sans-serif;letter-spacing:-0.005em;}
 .gamecard .meta{font-size:12px;color:var(--text-dim);margin-top:3px;font-family:'IBM Plex Mono',monospace;}
-.netbadge{font-size:11px;font-weight:600;padding:5px 9px;border-radius:7px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-dim);white-space:nowrap;font-family:'IBM Plex Mono',monospace;}
+.netbadge{font-size:12.5px;font-weight:600;padding:6px 10px;border-radius:7px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-dim);white-space:nowrap;font-family:'IBM Plex Mono',monospace;}
 .netbadge.live{background:var(--live-soft);color:var(--live);border-color:rgba(255,90,120,0.35);}
 
 /* ---------- detail sheet (game / how to watch) ---------- */
@@ -118,18 +131,21 @@ button{font-family:inherit;}
 .ticket{margin:16px 18px 0;border-radius:var(--radius);background:var(--surface-2);border:1px solid var(--border);overflow:hidden;}
 .optionrow{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border-soft);}
 .optionrow:last-child{border-bottom:none;}
-.optionrow .netchip{width:40px;height:40px;border-radius:var(--radius-sm);background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
-  font-size:10.5px;font-weight:700;flex-shrink:0;font-family:'IBM Plex Mono',monospace;letter-spacing:0.02em;}
+.optionrow.overbudget{opacity:0.4;}
+.optionrow .netchip{width:46px;height:46px;border-radius:var(--radius-sm);background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:800;flex-shrink:0;font-family:'IBM Plex Mono',monospace;letter-spacing:0.02em;text-align:center;line-height:1.05;padding:2px;}
 .optionrow .info{flex:1;min-width:0;}
 .optionrow .label{font-size:14px;font-weight:600;color:var(--text);}
-.optionrow .sub{font-size:12px;color:var(--text-dim);margin-top:2px;}
-.pricepill{font-size:11.5px;font-weight:600;padding:5px 9px;border-radius:7px;font-family:'IBM Plex Mono',monospace;border:1px solid transparent;}
+.optionrow .sub{font-size:13px;color:var(--text-dim);margin-top:2px;}
+.pricepill{font-size:14px;font-weight:700;padding:6px 11px;border-radius:7px;font-family:'IBM Plex Mono',monospace;border:1px solid transparent;}
 .pricepill.free{background:var(--accent-soft);color:var(--accent);border-color:rgba(89,233,203,0.3);}
 .pricepill.paid{background:var(--surface);color:var(--text-dim);border-color:var(--border);}
-.cheapesttag{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:0.06em;color:var(--accent);
-  background:var(--accent-soft);padding:2px 7px;border-radius:5px;margin-bottom:4px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;}
-.goBtn{background:transparent;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;transition:border-color .15s,color .15s;}
+.cheapesttag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:0.06em;color:var(--accent);
+  background:var(--accent-soft);padding:3px 8px;border-radius:5px;margin-bottom:4px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;}
+.goBtn{background:transparent;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 14px;min-height:36px;font-size:13px;font-weight:600;transition:border-color .15s,color .15s;}
 .goBtn:hover{border-color:var(--accent);color:var(--accent);}
+.budgetnote{padding:12px 16px;font-size:12.5px;color:var(--text-dim);text-align:center;border-top:1px solid var(--border-soft);}
+.budgetnote button{color:var(--accent);font-weight:600;text-decoration:underline;padding:0;}
 .verified{padding:14px 20px 22px;font-size:11px;color:var(--text-faint);display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;}
 
 /* ---------- empty / loading ---------- */
@@ -155,6 +171,7 @@ button{font-family:inherit;}
 </div>
 
 <div class="chiprow" id="sportChips"></div>
+<div class="budgetrow" id="budgetRow"></div>
 
 <div class="section"><h2>Teams</h2></div>
 <div class="teamgrid" id="teamGrid"></div>
@@ -207,7 +224,23 @@ const SPORTS = {
   }
 };
 
-let state = { sport:'nfl', team:null, networks:[], accessOptions:[] };
+const BUDGET_KEY = 'wg_budget_max_v1';
+function loadBudget(){
+  try{ const v = localStorage.getItem(BUDGET_KEY); return v===null ? null : JSON.parse(v); }
+  catch(e){ return null; }
+}
+function saveBudget(v){
+  try{ localStorage.setItem(BUDGET_KEY, JSON.stringify(v)); }catch(e){}
+}
+const BUDGET_TIERS = [
+  { label:'Any', max:null },
+  { label:'Free', max:0 },
+  { label:'Under $10', max:10 },
+  { label:'Under $20', max:20 },
+  { label:'Under $40', max:40 },
+];
+
+let state = { sport:'nfl', team:null, scheduleMode:'week', networks:[], accessOptions:[], budgetMax: loadBudget() };
 
 /* ============================================================
    OUTPUT SANITIZING — every value below can originate from a
@@ -261,7 +294,23 @@ function renderChips(){
   el.innerHTML = Object.entries(SPORTS).map(([key,s]) =>
     `<button class="chip ${key===state.sport?'active':''}" data-sport="${key}">${s.label}</button>`
   ).join('') + `<button class="chip" disabled style="opacity:.4">NBA soon</button><button class="chip" disabled style="opacity:.4">MLB soon</button>`;
-  el.querySelectorAll('[data-sport]').forEach(b=>b.onclick=()=>{state.sport=b.dataset.sport;state.team=null;renderAll();});
+  el.querySelectorAll('[data-sport]').forEach(b=>b.onclick=()=>{state.sport=b.dataset.sport;state.team=null;state.scheduleMode='week';renderAll();});
+}
+
+/* ---------------- render: budget filter row ----------------
+   Sets a persisted max monthly price. Applied inside the "how to
+   watch" ticket sheet (openGame) to hide/gray options over budget —
+   this is a filter on access options, not on which games show up. */
+function renderBudgetRow(){
+  const el = document.getElementById('budgetRow');
+  el.innerHTML = `<span class="budgetlabel">Budget</span>` + BUDGET_TIERS.map(t=>
+    `<button class="budgetchip ${state.budgetMax===t.max?'active':''}" data-max="${t.max===null?'':t.max}">${t.label}</button>`
+  ).join('');
+  el.querySelectorAll('[data-max]').forEach(b=>b.onclick=()=>{
+    state.budgetMax = b.dataset.max==='' ? null : Number(b.dataset.max);
+    saveBudget(state.budgetMax);
+    renderBudgetRow();
+  });
 }
 
 /* ---------------- render: team grid ---------------- */
@@ -276,6 +325,7 @@ function renderTeams(){
   ).join('');
   el.querySelectorAll('[data-team]').forEach(c=>c.onclick=()=>{
     state.team = state.team===c.dataset.team ? null : c.dataset.team;
+    state.scheduleMode = 'week';
     renderTeams();
     loadGames();
   });
@@ -330,6 +380,73 @@ async function fetchScoreboard(){
   return games;
 }
 
+/* ---------------- fetch: ESPN full-season team schedule ----------------
+   Different endpoint from the scoreboard above (site.api.espn.com/.../teams/
+   {abbr}/schedule), used only once a team is selected and "Full season" is
+   toggled — the scoreboard endpoint only ever returns the current week.
+   NOTE: this endpoint's exact JSON shape hasn't been live-verified in this
+   environment (no outbound network access here) — the parsing below is
+   written defensively with fallbacks based on documented community usage,
+   but should be spot-checked against a real response and adjusted if a
+   field comes back empty/undefined. */
+const TEAM_SCHEDULE_TTL = 6 * 60 * 60 * 1000; // full-season schedule barely moves; broadcasts can still get added/changed
+
+function currentNflSeasonYear(){
+  const now = new Date();
+  // NFL "season" is labeled by the year it starts (games play into the
+  // following Jan/Feb but are still the prior year's season).
+  return now.getMonth() >= 2 ? now.getFullYear() : now.getFullYear() - 1; // month 2 = March
+}
+
+async function fetchTeamSchedule(teamAbbr){
+  const sport = SPORTS[state.sport];
+  const year = currentNflSeasonYear();
+  const cacheKey = `teamschedule_${state.sport}_${teamAbbr}_${year}`;
+  const cached = cacheGet(cacheKey);
+  if(cached && cached.age < TEAM_SCHEDULE_TTL) return cached.data;
+
+  const url = `https://site.api.espn.com/apis/site/v2/sports/${sport.espnPath}/teams/${teamAbbr.toLowerCase()}/schedule?season=${year}&seasontype=2`;
+  let res;
+  try{
+    res = await fetch(url);
+  }catch(networkErr){
+    if(cached) return cached.data;
+    throw networkErr;
+  }
+  if(!res.ok){
+    if(cached) return cached.data;
+    throw new Error('ESPN team schedule fetch failed: ' + res.status);
+  }
+  const data = await res.json();
+  const games = (data.events || []).map(ev=>{
+    const comp = ev.competitions?.[0];
+    // Broadcasts have shown up under a couple of different shapes across
+    // ESPN's "site" API family — try the scoreboard shape first, then fall
+    // back to a media/type shortName shape.
+    const rawBroadcasts = comp?.broadcasts || ev.broadcasts || [];
+    const broadcasts = rawBroadcasts.flatMap(b =>
+      b.names || (b.media?.shortName ? [b.media.shortName] : (b.type?.shortName ? [b.type.shortName] : []))
+    ).filter(Boolean);
+    const competitors = comp?.competitors || [];
+    const home = competitors.find(c=>c.homeAway==='home');
+    const away = competitors.find(c=>c.homeAway==='away');
+    return {
+      id: ev.id,
+      name: ev.name,
+      date: ev.date,
+      status: ev.status?.type?.state || comp?.status?.type?.state,
+      statusDetail: ev.status?.type?.shortDetail || comp?.status?.type?.shortDetail,
+      home: home?.team, away: away?.team,
+      homeScore: home?.score, awayScore: away?.score,
+      broadcasts,
+      venue: comp?.venue?.fullName,
+      image: comp?.competitors?.[0]?.team?.logos?.[0]?.href
+    };
+  });
+  cacheSet(cacheKey, games);
+  return games;
+}
+
 /* ---------------- fetch: Supabase reference data ---------------- */
 const REFERENCE_TTL = 12 * 60 * 60 * 1000; // hand-verified pricing barely changes day to day
 
@@ -370,6 +487,43 @@ function networkForBroadcastName(name){
   })) || null;
 }
 
+/* ---------------- brand-styled network badges ----------------
+   Can't embed the actual ESPN/Peacock/Prime/etc. logo files (trademarked
+   assets — pulling them from a random CDN is an IP + reliability risk).
+   Instead, give each known network its real brand color + wordmark
+   treatment so badges are recognizable at a glance. Anything not in this
+   table falls back to the generic 4-letter monogram using the network's
+   brand_color from Supabase, so unmapped/custom networks still render fine. */
+const BRAND_STYLES = {
+  espn:              { bg:'#000000', fg:'#FF0000', label:'ESPN' },
+  espn2:             { bg:'#000000', fg:'#FF0000', label:'ESPN2' },
+  espnnews:          { bg:'#000000', fg:'#FF0000', label:'ESPN' },
+  espnplus:          { bg:'#000000', fg:'#FF0000', label:'ESPN+' },
+  abc:               { bg:'#000000', fg:'#FFFFFF', label:'ABC' },
+  cbs:               { bg:'#033a71', fg:'#FFFFFF', label:'CBS' },
+  nbc:               { bg:'#0d1a3c', fg:'#FFFFFF', label:'NBC' },
+  fox:               { bg:'#000000', fg:'#FFFFFF', label:'FOX' },
+  peacock:           { bg:'#000000', fg:'#FFFFFF', label:'PEACOCK' },
+  primevideo:        { bg:'#00A8E1', fg:'#0F1111', label:'PRIME' },
+  amazonprimevideo:  { bg:'#00A8E1', fg:'#0F1111', label:'PRIME' },
+  amazon:            { bg:'#00A8E1', fg:'#0F1111', label:'PRIME' },
+  paramountplus:     { bg:'#0064FF', fg:'#FFFFFF', label:'P+' },
+  nflnetwork:        { bg:'#013369', fg:'#FFFFFF', label:'NFL' },
+  nflplus:           { bg:'#013369', fg:'#FFFFFF', label:'NFL+' },
+  youtubetv:         { bg:'#FF0000', fg:'#FFFFFF', label:'YTTV' },
+  sling:             { bg:'#0d0d0d', fg:'#FF6A00', label:'SLING' },
+  slingorange:       { bg:'#0d0d0d', fg:'#FF6A00', label:'SLING' },
+  hulu:              { bg:'#1CE783', fg:'#000000', label:'HULU' },
+  fubo:              { bg:'#0b0b0b', fg:'#EF4136', label:'FUBO' },
+  fubotv:            { bg:'#0b0b0b', fg:'#EF4136', label:'FUBO' },
+  directv:           { bg:'#001E62', fg:'#FFFFFF', label:'DTV' },
+  directvstream:     { bg:'#001E62', fg:'#FFFFFF', label:'DTV' },
+};
+function brandStyleFor(net){
+  const key = (net.display_name||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  return BRAND_STYLES[key] || null;
+}
+
 /* ---------------- render: hero (next live/upcoming marquee game) ---------------- */
 function renderHero(games){
   const slot = document.getElementById('heroSlot');
@@ -395,7 +549,25 @@ function renderGames(games){
   const title = document.getElementById('gamesTitle');
   const list = document.getElementById('gamesList');
   header.style.display = 'block';
-  title.textContent = state.team ? `${state.team} games` : 'This week';
+  title.textContent = state.team
+    ? `${state.team} · ${state.scheduleMode==='season' ? 'full season' : 'this week'}`
+    : 'This week';
+
+  header.querySelector('.scopeToggle')?.remove();
+  if(state.team){
+    header.insertAdjacentHTML('beforeend', `
+      <div class="scopeToggle">
+        <button class="scopeBtn ${state.scheduleMode==='week'?'active':''}" data-mode="week">This week</button>
+        <button class="scopeBtn ${state.scheduleMode==='season'?'active':''}" data-mode="season">Full season</button>
+      </div>`);
+    header.querySelectorAll('.scopeBtn').forEach(b=>{
+      b.onclick = ()=>{
+        if(state.scheduleMode===b.dataset.mode) return;
+        state.scheduleMode = b.dataset.mode;
+        loadGames();
+      };
+    });
+  }
 
   if(games.length === 0){
     list.innerHTML = `<div class="empty">No games found. Try another team, or check back closer to kickoff.</div>`;
@@ -440,17 +612,26 @@ function openGame(g){
       <div class="meta">${escapeHtml(g.status==='in' ? g.statusDetail : timeStr)}${g.venue ? ' · '+escapeHtml(g.venue) : ''}</div>
     </div>
     <div class="ticket">
-      ${options.length === 0 ? `<div class="empty">No verified "how to watch" info yet for ${escapeHtml(g.broadcasts.join(', ')||'this broadcast')}. Connect Supabase reference data to fill this in.</div>` :
+      ${options.length === 0 ? (
+        g.broadcasts.length === 0
+          ? `<div class="empty">TV broadcast hasn't been announced yet for this game. Check back closer to kickoff.</div>`
+          : `<div class="empty">No verified "how to watch" info yet for ${escapeHtml(g.broadcasts.join(', '))}.</div>`
+      ) :
         options.map(({net,o})=>{
           const color = safeColor(net.brand_color) || 'var(--accent)';
           const goUrl = safeUrl(o.signup_url);
+          const brand = brandStyleFor(net);
+          const chipStyle = brand ? `background:${brand.bg};color:${brand.fg};border-color:${brand.bg}` : `color:${color}`;
+          const chipLabel = brand ? brand.label : (net.display_name||'').slice(0,4).toUpperCase();
+          const cost = o.monthly_cost_usd ?? 0;
+          const overBudget = state.budgetMax !== null && cost > state.budgetMax;
           return `
-          <div class="optionrow">
-            <div class="netchip" style="color:${color}">${escapeHtml((net.display_name||'').slice(0,4).toUpperCase())}</div>
+          <div class="optionrow ${overBudget ? 'overbudget' : ''}">
+            <div class="netchip" style="${chipStyle}">${escapeHtml(chipLabel)}</div>
             <div class="info">
               ${o.is_cheapest ? `<div class="cheapesttag">CHEAPEST</div>` : ''}
               <div class="label">${escapeHtml(o.label)}</div>
-              <div class="sub">${escapeHtml(o.notes || net.display_name)}</div>
+              <div class="sub">${escapeHtml(o.notes || net.display_name)}${overBudget ? ' · over your budget' : ''}</div>
             </div>
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
               <span class="pricepill ${(!o.monthly_cost_usd)?'free':'paid'}">${o.monthly_cost_usd ? '$'+escapeHtml(o.monthly_cost_usd)+'/mo' : 'Free'}</span>
@@ -476,9 +657,14 @@ async function loadGames(){
   document.getElementById('gamesHeader').style.display='block';
   document.getElementById('gamesList').innerHTML = `<div class="loading"><div class="spinner"></div>Loading live schedule…</div>`;
   try{
-    let games = await fetchScoreboard();
-    if(state.team){
-      games = games.filter(g => g.home?.abbreviation===state.team || g.away?.abbreviation===state.team);
+    let games;
+    if(state.team && state.scheduleMode==='season'){
+      games = await fetchTeamSchedule(state.team);
+    }else{
+      games = await fetchScoreboard();
+      if(state.team){
+        games = games.filter(g => g.home?.abbreviation===state.team || g.away?.abbreviation===state.team);
+      }
     }
     renderHero(games);
     renderGames(games);
@@ -490,6 +676,7 @@ async function loadGames(){
 
 async function renderAll(){
   renderChips();
+  renderBudgetRow();
   renderTeams();
   await loadReferenceData();
   await loadGames();
